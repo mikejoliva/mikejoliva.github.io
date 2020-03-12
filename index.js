@@ -22,7 +22,8 @@ const fontList = [
 async function generateText() {
   const myDiv = $('#cool-div');
   while (true) {
-    myDiv.append(`<span style="color: ${getRandomColor()}; font-family: ${getRandomFont()}">PLEASE HIRE ME <span>`);
+    // For all the cool kids: https://github.com/Zikael <*((><
+    myDiv.append(`<a style="text-decoration:none" href="https://uk.linkedin.com/in/michael-oliva-9bb11b117"><span style="color: ${getRandomColour()}; font-family: ${getRandomFont()}">PLEASE HIRE ME </span></a>`);
     await sleep(200);
   }
 }
@@ -33,15 +34,15 @@ async function moveBackground() {
   while (true) {
     if (counter >= 360) counter = 0;
     $(myBody).css('background-color', getColour(counter++));
-    await sleep(10);
+    await sleep(20);
   }
 }
 
 function getColour(num) {
-  return `hsl(${num}, 100%, 50%)`;
+  return `hsl(${num}, 80%, 50%)`;
 }
 
-function getRandomColor() {
+function getRandomColour() {
   return `hsl(${Math.floor(Math.random() * 360)}, 100%, 50%)`;
 }
 
