@@ -1,4 +1,9 @@
-$(document).ready(() => {
+// <*((>< 
+//  Welcome to my super cool website!
+//  I'm sorry
+// ><))*>
+
+window.addEventListener('DOMContentLoaded', () => {
   generateText();
   moveBackground();
 });
@@ -20,20 +25,30 @@ const fontList = [
 ]
 
 async function generateText() {
-  const myDiv = $('#cool-div');
+  const myDiv = document.getElementById('cool-div');
   while (true) {
-    // For all the cool kids: https://github.com/Zikael <*((><
-    myDiv.append(`<a style="text-decoration:none" href="https://uk.linkedin.com/in/michael-oliva-9bb11b117"><span style="color: ${getRandomColour()}; font-family: ${getRandomFont()}">PLEASE HIRE ME </span></a>`);
+    let wrapper = document.createElement('a');
+    wrapper.style.textDecoration = 'none';
+    wrapper.href = getRandomLink();
+
+    let span = document.createElement('SPAN');
+    span.style.color = getRandomColour(); 
+    span.style.fontFamily = getRandomFont();
+    span.innerText = 'PLEASE HIRE ME ';
+
+    wrapper.appendChild(span);
+    myDiv.appendChild(wrapper);
+
     await sleep(200);
   }
 }
 
 async function moveBackground() {
-  const myBody = $('#body');
+  const myBody =  document.getElementById('body');
   let counter = 0;
   while (true) {
     if (counter >= 360) counter = 0;
-    $(myBody).css('background-color', getColour(counter++));
+    myBody.style.backgroundColor= getColour(counter++);
     await sleep(20);
   }
 }
@@ -48,6 +63,12 @@ function getRandomColour() {
 
 function getRandomFont() {
   return fontList[Math.floor(Math.random() * fontList.length)];
+}
+
+function getRandomLink() {
+  if (Math.floor(Math.random() * 2))
+    return 'https://uk.linkedin.com/in/michael-oliva-9bb11b117';
+  return 'https://github.com/Zikael';
 }
 
 function sleep(ms) {
