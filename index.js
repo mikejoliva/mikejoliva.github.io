@@ -68,7 +68,7 @@ function getRandomFont() {
 function getRandomLink() {
   if (Math.floor(Math.random() * 2))
     return 'https://uk.linkedin.com/in/michael-oliva-9bb11b117';
-  return 'https://github.com/Zikael';
+  return 'https://github.com/mikejoliva';
 }
 
 function sleep(ms) {
