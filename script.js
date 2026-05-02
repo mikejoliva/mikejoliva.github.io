@@ -6,16 +6,8 @@
     let width = window.innerWidth;
     let height = window.innerHeight;
 
-    const resizeCanvas = () => {
-        width = canvas.width = window.innerWidth;
-        height = canvas.height = window.innerHeight;
-    };
-    window.addEventListener("resize", resizeCanvas);
-    resizeCanvas();
-
-    // ----- Constants -----
+    // ----- Config -----
     const CONFIG = {
-        BLOB_COUNT: 200,
         MAX_SPEED: 0.5,
         MOUSE_PULL_DISTANCE: 150,
         STOP_THRESHOLD: 5,
@@ -23,15 +15,12 @@
         EDGE_PUSH: 0.05,
         REPEL_DISTANCE: 80,
         REPEL_STRENGTH: 0.05,
-        HALO_RADIUS: 180
+        HALO_RADIUS: 180,
+        BLOB_DENSITY: 10000 // pixels per blob
     };
 
-    const mouse = { x: width / 2, y: height / 2 };
-    window.addEventListener("mousemove", (e) => {
-        mouse.x = e.clientX;
-        mouse.y = e.clientY;
-    });
-
+    let blobs = [];
+    let mouse = { x: width / 2, y: height / 2 };
     let bgHue = 220;
     let huePhase = 0;
 
@@ -69,14 +58,12 @@
             const gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, currentRadius);
             gradient.addColorStop(0, `hsla(${this.hue}, 70%, 60%, ${this.opacity})`);
             gradient.addColorStop(1, 'transparent');
-
             ctx.fillStyle = gradient;
             ctx.beginPath();
             ctx.arc(this.x, this.y, currentRadius, 0, Math.PI * 2);
             ctx.fill();
         }
 
-        // ----- Private Methods -----
         _applyMouseAttraction() {
             const dx = mouse.x - this.x;
             const dy = mouse.y - this.y;
@@ -99,7 +86,6 @@
         _applyEdgePush() {
             const centerX = width / 2;
             const centerY = height / 2;
-
             if (this.x < CONFIG.EDGE_MARGIN) this.vx += (centerX - this.x) * CONFIG.EDGE_PUSH;
             if (this.x > width - CONFIG.EDGE_MARGIN) this.vx += (centerX - this.x) * CONFIG.EDGE_PUSH;
             if (this.y < CONFIG.EDGE_MARGIN) this.vy += (centerY - this.y) * CONFIG.EDGE_PUSH;
@@ -123,7 +109,6 @@
 
         _applyRepel(blobs) {
             if (distance(this.x, this.y, mouse.x, mouse.y) < CONFIG.MOUSE_PULL_DISTANCE) return;
-
             for (const other of blobs) {
                 if (other === this) continue;
                 if (distance(other.x, other.y, mouse.x, mouse.y) < CONFIG.MOUSE_PULL_DISTANCE) continue;
@@ -157,17 +142,36 @@
         }
     }
 
-    // ----- Initialize Blobs -----
-    const blobs = Array.from({ length: CONFIG.BLOB_COUNT }, () => new Blob());
+    // ----- Initialize Blobs Based on Screen Size -----
+    const initBlobs = () => {
+        const blobCount = Math.max(20, Math.floor((width * height) / CONFIG.BLOB_DENSITY)); // minimum 20 blobs
+        blobs = Array.from({ length: blobCount }, () => new Blob());
+    };
 
-    // ----- Main Animation Loop -----
+    // ----- Mouse Tracking -----
+    window.addEventListener("mousemove", (e) => {
+        mouse.x = e.clientX;
+        mouse.y = e.clientY;
+    });
+
+    // ----- Resize Handling -----
+    const handleResize = () => {
+        width = canvas.width = window.innerWidth;
+        height = canvas.height = window.innerHeight;
+        initBlobs();
+    };
+    window.addEventListener("resize", handleResize);
+
+    // ----- Initial Setup -----
+    handleResize();
+
+    // ----- Animation Loop -----
     const draw = () => {
         ctx.clearRect(0, 0, width, height);
 
-        // Update background gradient
+        // Background gradient
         huePhase += 0.01;
         bgHue = 240 + 40 * Math.sin(huePhase);
-
         const gradient = ctx.createLinearGradient(0, 0, width, height);
         const gradHue = bgHue + 20;
         gradient.addColorStop(0, `hsl(${bgHue}, 30%, 8%)`);
@@ -175,7 +179,7 @@
         ctx.fillStyle = gradient;
         ctx.fillRect(0, 0, width, height);
 
-        // Draw lines between nearby blobs
+        // Draw lines between blobs
         for (let i = 0; i < blobs.length; i++) {
             for (let j = i + 1; j < blobs.length; j++) {
                 const dist = distance(blobs[i].x, blobs[i].y, blobs[j].x, blobs[j].y);
@@ -190,7 +194,6 @@
             }
         }
 
-        // Update and draw all blobs
         blobs.forEach(blob => {
             blob.update(blobs);
             blob.draw(ctx);
