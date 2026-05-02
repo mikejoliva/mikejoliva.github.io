@@ -144,10 +144,11 @@
 
     // ----- Initialize Blobs Based on Screen Size -----
     const initBlobs = () => {
-        const blobCount = Math.max(20, Math.floor((width * height) / CONFIG.BLOB_DENSITY)); // minimum 20 blobs
+        let blobCount = Math.floor((width * height) / CONFIG.BLOB_DENSITY);
+        blobCount = Math.max(20, Math.min(blobCount, 250));
         blobs = Array.from({ length: blobCount }, () => new Blob());
     };
-
+    
     // ----- Mouse Tracking -----
     window.addEventListener("mousemove", (e) => {
         mouse.x = e.clientX;
