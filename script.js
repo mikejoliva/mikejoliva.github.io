@@ -16,7 +16,7 @@
         REPEL_DISTANCE: 80,
         REPEL_STRENGTH: 0.05,
         HALO_RADIUS: 180,
-        BLOB_DENSITY: 10000 // pixels per blob
+        BLOB_DENSITY: 10000,
     };
 
     let blobs = [];
@@ -62,6 +62,9 @@
             ctx.beginPath();
             ctx.arc(this.x, this.y, currentRadius, 0, Math.PI * 2);
             ctx.fill();
+
+            // Hue shift based on velocity
+            this.hue += Math.hypot(this.vx, this.vy) * 1.5;
         }
 
         _applyMouseAttraction() {
@@ -148,11 +151,11 @@
         blobCount = Math.max(20, Math.min(blobCount, 250));
         blobs = Array.from({ length: blobCount }, () => new Blob());
     };
-    
+
     // ----- Mouse Tracking -----
     window.addEventListener("mousemove", (e) => {
-        mouse.x = e.clientX;
-        mouse.y = e.clientY;
+            mouse.x = e.clientX;
+            mouse.y = e.clientY;
     });
 
     // ----- Resize Handling -----
@@ -163,7 +166,6 @@
     };
     window.addEventListener("resize", handleResize);
 
-    // ----- Initial Setup -----
     handleResize();
 
     // ----- Animation Loop -----
@@ -185,7 +187,10 @@
             for (let j = i + 1; j < blobs.length; j++) {
                 const dist = distance(blobs[i].x, blobs[i].y, blobs[j].x, blobs[j].y);
                 if (dist < 200) {
-                    ctx.strokeStyle = `rgba(255,255,255,${(200 - dist) / 200 * 0.15})`;
+                    const grad = ctx.createLinearGradient(blobs[i].x, blobs[i].y, blobs[j].x, blobs[j].y);
+                    grad.addColorStop(0, `hsla(${blobs[i].hue}, 70%, 60%, ${(200 - dist) / 200 * 0.15})`);
+                    grad.addColorStop(1, `hsla(${blobs[j].hue}, 70%, 60%, ${(200 - dist) / 200 * 0.15})`);
+                    ctx.strokeStyle = grad;
                     ctx.lineWidth = 1;
                     ctx.beginPath();
                     ctx.moveTo(blobs[i].x, blobs[i].y);
