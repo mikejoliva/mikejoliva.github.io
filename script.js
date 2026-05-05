@@ -17,6 +17,9 @@
         REPEL_STRENGTH: 0.05,
         HALO_RADIUS: 180,
         BLOB_DENSITY: 10000,
+        BLOB_MAX: 150,
+        BLOB_MIN: 20,
+        LINE_INTENSITY: 0.25,
     };
 
     let blobs = [];
@@ -148,7 +151,7 @@
     // ----- Initialize Blobs Based on Screen Size -----
     const initBlobs = () => {
         let blobCount = Math.floor((width * height) / CONFIG.BLOB_DENSITY);
-        blobCount = Math.max(20, Math.min(blobCount, 250));
+        blobCount = Math.max(CONFIG.BLOB_MIN, Math.min(blobCount, CONFIG.BLOB_MAX));
         blobs = Array.from({ length: blobCount }, () => new Blob());
     };
 
@@ -182,14 +185,19 @@
         ctx.fillStyle = gradient;
         ctx.fillRect(0, 0, width, height);
 
+        blobs.forEach(blob => {
+            blob.update(blobs);
+            blob.draw(ctx);
+        });
+
         // Draw lines between blobs
         for (let i = 0; i < blobs.length; i++) {
             for (let j = i + 1; j < blobs.length; j++) {
                 const dist = distance(blobs[i].x, blobs[i].y, blobs[j].x, blobs[j].y);
                 if (dist < 200) {
                     const grad = ctx.createLinearGradient(blobs[i].x, blobs[i].y, blobs[j].x, blobs[j].y);
-                    grad.addColorStop(0, `hsla(${blobs[i].hue}, 70%, 60%, ${(200 - dist) / 200 * 0.15})`);
-                    grad.addColorStop(1, `hsla(${blobs[j].hue}, 70%, 60%, ${(200 - dist) / 200 * 0.15})`);
+                    grad.addColorStop(0, `hsla(${blobs[i].hue}, 70%, 60%, ${(200 - dist) / 200 * CONFIG.LINE_INTENSITY})`);
+                    grad.addColorStop(1, `hsla(${blobs[j].hue}, 70%, 60%, ${(200 - dist) / 200 * CONFIG.LINE_INTENSITY})`);
                     ctx.strokeStyle = grad;
                     ctx.lineWidth = 1;
                     ctx.beginPath();
@@ -200,11 +208,7 @@
             }
         }
 
-        blobs.forEach(blob => {
-            blob.update(blobs);
-            blob.draw(ctx);
-        });
-
+     
         requestAnimationFrame(draw);
     };
 
