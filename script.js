@@ -28,7 +28,11 @@
     let huePhase = 0;
 
     // ----- Utility Functions -----
-    const distance = (x1, y1, x2, y2) => Math.hypot(x2 - x1, y2 - y1);
+    const distanceSquared = (x1, y1, x2, y2) => {
+        const dx = x2 - x1;
+        const dy = y2 - y1;
+        return dx * dx + dy * dy;
+    };
     const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 
     // ----- Blob Class -----
@@ -51,6 +55,7 @@
             this._applyHaloOrbit();
             this._applyRepel(blobs);
             this._limitSpeed();
+
             this.x += this.vx;
             this.y += this.vy;
             this._softEdges();
@@ -58,24 +63,29 @@
 
         draw(ctx) {
             const currentRadius = this.radius + Math.sin(Date.now() * 0.002) * 10;
+
+            // Simple radial gradient
             const gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, currentRadius);
-            gradient.addColorStop(0, `hsla(${this.hue}, 70%, 60%, ${this.opacity})`);
+            gradient.addColorStop(0, `hsla(${this.hue},70%,60%,${this.opacity})`);
             gradient.addColorStop(1, 'transparent');
             ctx.fillStyle = gradient;
+
             ctx.beginPath();
             ctx.arc(this.x, this.y, currentRadius, 0, Math.PI * 2);
             ctx.fill();
 
             // Hue shift based on velocity
-            this.hue += Math.hypot(this.vx, this.vy) * 1.5;
+            this.hue = (this.hue + Math.hypot(this.vx, this.vy) * 1.5) % 360;
         }
 
         _applyMouseAttraction() {
             const dx = mouse.x - this.x;
             const dy = mouse.y - this.y;
-            const dist = distance(this.x, this.y, mouse.x, mouse.y);
+            const distSq = dx * dx + dy * dy;
+            const maxDistSq = CONFIG.MOUSE_PULL_DISTANCE ** 2;
 
-            if (dist < CONFIG.MOUSE_PULL_DISTANCE) {
+            if (distSq < maxDistSq) {
+                const dist = Math.sqrt(distSq);
                 if (dist > CONFIG.STOP_THRESHOLD) {
                     this.vx += dx * 0.01;
                     this.vy += dy * 0.01;
@@ -92,6 +102,7 @@
         _applyEdgePush() {
             const centerX = width / 2;
             const centerY = height / 2;
+
             if (this.x < CONFIG.EDGE_MARGIN) this.vx += (centerX - this.x) * CONFIG.EDGE_PUSH;
             if (this.x > width - CONFIG.EDGE_MARGIN) this.vx += (centerX - this.x) * CONFIG.EDGE_PUSH;
             if (this.y < CONFIG.EDGE_MARGIN) this.vy += (centerY - this.y) * CONFIG.EDGE_PUSH;
@@ -101,29 +112,38 @@
         _applyHaloOrbit() {
             const dx = this.x - width / 2;
             const dy = this.y - height / 2;
-            const dist = distance(this.x, this.y, width / 2, height / 2);
+            const distSq = dx * dx + dy * dy;
 
-            if (dist < CONFIG.HALO_RADIUS) {
+            if (distSq < CONFIG.HALO_RADIUS ** 2) {
                 const angle = Math.atan2(dy, dx);
                 const orbitStrength = 0.002;
                 this.vx += -Math.sin(angle) * orbitStrength;
                 this.vy += Math.cos(angle) * orbitStrength;
+                const dist = Math.sqrt(distSq);
                 this.hue = (bgHue + (dist / CONFIG.HALO_RADIUS) * 60) % 360;
                 this.opacity = 0.2 + (1 - dist / CONFIG.HALO_RADIUS) * 0.2;
             }
         }
 
         _applyRepel(blobs) {
-            if (distance(this.x, this.y, mouse.x, mouse.y) < CONFIG.MOUSE_PULL_DISTANCE) return;
-            for (const other of blobs) {
+            const mouseDistSq = distanceSquared(this.x, this.y, mouse.x, mouse.y);
+            if (mouseDistSq < CONFIG.MOUSE_PULL_DISTANCE ** 2) return;
+
+            const repelDistSq = CONFIG.REPEL_DISTANCE ** 2;
+
+            for (let i = 0; i < blobs.length; i++) {
+                const other = blobs[i];
                 if (other === this) continue;
-                if (distance(other.x, other.y, mouse.x, mouse.y) < CONFIG.MOUSE_PULL_DISTANCE) continue;
+
+                const otherMouseDistSq = distanceSquared(other.x, other.y, mouse.x, mouse.y);
+                if (otherMouseDistSq < CONFIG.MOUSE_PULL_DISTANCE ** 2) continue;
 
                 const dx = this.x - other.x;
                 const dy = this.y - other.y;
-                const dist = distance(this.x, this.y, other.x, other.y);
+                const distSq = dx * dx + dy * dy;
 
-                if (dist > 0 && dist < CONFIG.REPEL_DISTANCE) {
+                if (distSq > 0 && distSq < repelDistSq) {
+                    const dist = Math.sqrt(distSq);
                     const force = ((CONFIG.REPEL_DISTANCE - dist) / CONFIG.REPEL_DISTANCE) * CONFIG.REPEL_STRENGTH;
                     const nx = dx / dist;
                     const ny = dy / dist;
@@ -157,8 +177,8 @@
 
     // ----- Mouse Tracking -----
     window.addEventListener("mousemove", (e) => {
-            mouse.x = e.clientX;
-            mouse.y = e.clientY;
+        mouse.x = e.clientX;
+        mouse.y = e.clientY;
     });
 
     // ----- Resize Handling -----
@@ -185,30 +205,31 @@
         ctx.fillStyle = gradient;
         ctx.fillRect(0, 0, width, height);
 
-        blobs.forEach(blob => {
-            blob.update(blobs);
-            blob.draw(ctx);
-        });
-
-        // Draw lines between blobs
+        // Update and draw blobs
         for (let i = 0; i < blobs.length; i++) {
+            blobs[i].update(blobs);
+            blobs[i].draw(ctx);
+        }
+
+        // Draw lines between blobs efficiently
+        const lineDistSq = 200 * 200;
+        ctx.lineWidth = 1;
+        for (let i = 0; i < blobs.length; i++) {
+            const a = blobs[i];
             for (let j = i + 1; j < blobs.length; j++) {
-                const dist = distance(blobs[i].x, blobs[i].y, blobs[j].x, blobs[j].y);
-                if (dist < 200) {
-                    const grad = ctx.createLinearGradient(blobs[i].x, blobs[i].y, blobs[j].x, blobs[j].y);
-                    grad.addColorStop(0, `hsla(${blobs[i].hue}, 70%, 60%, ${(200 - dist) / 200 * CONFIG.LINE_INTENSITY})`);
-                    grad.addColorStop(1, `hsla(${blobs[j].hue}, 70%, 60%, ${(200 - dist) / 200 * CONFIG.LINE_INTENSITY})`);
-                    ctx.strokeStyle = grad;
-                    ctx.lineWidth = 1;
+                const b = blobs[j];
+                const distSq = distanceSquared(a.x, a.y, b.x, b.y);
+                if (distSq < lineDistSq) {
+                    const alpha = ((200 - Math.sqrt(distSq)) / 200) * CONFIG.LINE_INTENSITY;
+                    ctx.strokeStyle = `hsla(${a.hue},70%,60%,${alpha})`;
                     ctx.beginPath();
-                    ctx.moveTo(blobs[i].x, blobs[i].y);
-                    ctx.lineTo(blobs[j].x, blobs[j].y);
+                    ctx.moveTo(a.x, a.y);
+                    ctx.lineTo(b.x, b.y);
                     ctx.stroke();
                 }
             }
         }
 
-     
         requestAnimationFrame(draw);
     };
 
