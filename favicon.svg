@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <!-- Background gradient -->
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0b1020"></stop>
+      <stop offset="100%" stop-color="#111c3a"></stop>
+    </linearGradient>
+
+    <!-- Blob gradient -->
+    <linearGradient id="blob" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#22d3ee"></stop>
+      <stop offset="50%" stop-color="#60a5fa"></stop>
+      <stop offset="100%" stop-color="#a78bfa"></stop>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="64" height="64" rx="18" fill="url(#bg)"></rect>
+
+  <!-- Subtle floating animation -->
+  <g transform-origin="32px 32px">
+    <animateTransform attributeName="transform" type="translate" values="0 0; 0 -1.2; 0 0" dur="4.5s" repeatCount="indefinite" calcMode="spline" keySplines="0.42 0 0.58 1;0.42 0 0.58 1"></animateTransform>
+
+    <!-- Blob face -->
+    <path d="
+        M32 14
+        C44 14 52 22 52 32
+        C52 44 44 52 32 52
+        C20 52 12 44 12 32
+        C12 22 20 14 32 14
+        Z" fill="url(#blob)" opacity="0.95"></path>
+
+    <!-- Eyes -->
+    <circle cx="26" cy="30" r="2.5" fill="#0b1020"></circle>
+    <circle cx="38" cy="30" r="2.5" fill="#0b1020"></circle>
+
+    <!-- Smile -->
+    <path d="M25 38 Q32 44 39 38" fill="none" stroke="#0b1020" stroke-width="2.5" stroke-linecap="round"></path>
+  </g>
+</svg>
