@@ -245,6 +245,7 @@ body[data-sky="night"] .flyers { opacity: 0; }
     height: 0;
     font-size: 14vmin;
     z-index: 0;
+    will-change: translate;
     transition: left 0.9s cubic-bezier(.3, 1.5, .5, 1), top 0.9s cubic-bezier(.3, 1.5, .5, 1);
 }
 .orb {
@@ -258,8 +259,10 @@ body[data-sky="night"] .flyers { opacity: 0; }
     box-shadow: 0 0 0.43em 0.21em color-mix(in srgb, var(--sun-c) 50%, transparent);
     transition: background 1.4s, box-shadow 1.4s;
 }
-body.dragging { cursor: grabbing; user-select: none; }
-body.dragging .sun { transition: none; }
+body.dragging { cursor: grabbing; }
+body.grabbing { user-select: none; -webkit-user-select: none; }
+body.grabbing a { -webkit-user-drag: none; }
+body.dragging .sun, body.drifting .sun { transition: none; }
 
 body[data-sky="night"] .orb {
     background-image: radial-gradient(circle at 25% 70%, rgba(0, 0, 0, 0.12) 0 8%, transparent 9%), radial-gradient(circle at 75% 30%, rgba(0, 0, 0, 0.1) 0 10%, transparent 11%);

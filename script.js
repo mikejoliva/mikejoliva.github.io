@@ -76,11 +76,30 @@
     // ----- Sun -----
     let sunPx = { x: innerWidth * 0.78, y: innerHeight * 0.18 };
     const recent = [];
+    let lastUser = -Infinity;
+    let baseX = NaN, baseY = NaN;
+    const REBASE_PX = 48;
+    const glintEl = document.querySelector(".glint");
+    let cancelDrift = () => {};
 
-    const moveSun = (x, y, squash = true) => {
+    const moveSun = (x, y, squash = true, auto = false) => {
+        if (!auto) {
+            lastUser = performance.now();
+            cancelDrift();
+        }
         sunPx = { x, y };
-        body.style.setProperty("--sun-x", `${(x / innerWidth) * 100}%`);
-        body.style.setProperty("--sun-y", `${(y / innerHeight) * 100}%`);
+        // left/top snap to whole pixels and changing them restyles the page, so a slow drift jitters if it goes through them.
+        // The sun (and its reflection) sit on a rounded base position and the offset from it is a transform, which the
+        // compositor interpolates smoothly. The base only moves when the sun is dragged or has strayed far from it.
+        if (!auto || !(Math.abs(x - baseX) < REBASE_PX && Math.abs(y - baseY) < REBASE_PX)) {
+            baseX = Math.round(x);
+            baseY = Math.round(y);
+            body.style.setProperty("--sun-x", `${(baseX / innerWidth) * 100}%`);
+            body.style.setProperty("--sun-y", `${(baseY / innerHeight) * 100}%`);
+        }
+        const ox = (x - baseX).toFixed(3), oy = (y - baseY).toFixed(3);
+        sun.style.translate = `${ox}px ${oy}px`;
+        glintEl.style.translate = `calc(-50% + ${ox}px) 0`;
         const next = phaseForSun(x, y);
         if (next !== phase) setPhase(next);
         if (!squash) return;
@@ -111,7 +130,13 @@
         const r = orb.getBoundingClientRect();
         drag = { dx: r.left + r.width / 2 - e.clientX, dy: r.top + r.height / 2 - e.clientY, x: e.clientX, y: e.clientY };
         dragged = false;
+        // The sun sits behind the text and buttons, so stop the press turning into a text selection or a link drag,
+        // and keep the pointer events with one element so passing over them does nothing.
+        body.classList.add("grabbing");
+        getSelection()?.removeAllRanges();
+        try { e.target.setPointerCapture(e.pointerId); } catch {}
     });
+    for (const type of ["selectstart", "dragstart"]) document.addEventListener(type, e => { if (drag) e.preventDefault(); });
     document.addEventListener("pointermove", e => {
         if (!drag) return;
         if (!dragged && Math.hypot(e.clientX - drag.x, e.clientY - drag.y) < 4) return;
@@ -124,7 +149,7 @@
     const endDrag = () => {
         if (!drag) return;
         drag = null;
-        body.classList.remove("dragging");
+        body.classList.remove("dragging", "grabbing");
     };
     document.addEventListener("pointerup", endDrag);
     document.addEventListener("pointercancel", endDrag);
@@ -134,6 +159,118 @@
         if (e.target.closest("a")) return;
         moveSun(e.clientX, e.clientY);
     });
+
+    // ----- Sun drift: a slow day cycle. The sun rises on the left, arcs over, sets on the right and
+    // hurries back under the sea; the phases follow from its height. Move it by hand and it resumes from there.
+    // The motion is a Web Animation on the sun and its reflection, so the compositor interpolates it at sub-pixel
+    // precision (a transform set from script each frame is snapped to whole pixels and visibly steps).
+    const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const SECONDS_PER_RADIAN = 50;           // daytime pace: 10s per radian, so a full cycle is about 44 seconds
+    const NIGHT_SPEED = 2.5;                 // below the horizon the sun moves faster so night doesn't drag
+    const IDLE_BEFORE_RESUME = 6000;
+    const TAU = 2 * Math.PI;
+    const CYCLE = Math.PI + Math.PI / NIGHT_SPEED;   // in daytime-radians
+    let anim = null, anim2 = null, gliding = false, resumeToken = 0;
+
+    // Cycle position (0..CYCLE) <-> sun angle: the below-horizon half of the circle is traversed faster.
+    const timeOf = th => (th <= Math.PI ? th : Math.PI + (th - Math.PI) / NIGHT_SPEED);
+    const angleOf = t => (t <= Math.PI ? t : Math.PI + (t - Math.PI) * NIGHT_SPEED);
+
+    const arc = th => {
+        const h0 = innerHeight - sea.offsetHeight;
+        const amp = h0 - innerHeight * 0.12;
+        return { x: innerWidth * (0.5 - 0.42 * Math.cos(th)), y: h0 - amp * Math.sin(th) };
+    };
+
+    // Invert the arc from a position: above the horizon is the rising/setting half, below it the way back.
+    const thetaFor = (x, y) => {
+        const c = Math.max(-1, Math.min(1, (0.5 - x / innerWidth) / 0.42));
+        return y > innerHeight - sea.offsetHeight ? TAU - Math.acos(c) : Math.acos(c);
+    };
+
+    const stopDrift = () => {
+        resumeToken++;
+        gliding = false;
+        body.classList.remove("drifting");
+        if (anim) {
+            anim.cancel();
+            anim2.cancel();
+            anim = anim2 = null;
+        }
+    };
+    cancelDrift = stopDrift;
+
+    // Start the endless animation with the sun at angle th: one keyframe per degree, spaced by cycle time.
+    const runDrift = th => {
+        body.classList.add("drifting");
+        const p0 = arc(th);
+        baseX = Math.round(p0.x);
+        baseY = Math.round(p0.y);
+        body.style.setProperty("--sun-x", `${(baseX / innerWidth) * 100}%`);
+        body.style.setProperty("--sun-y", `${(baseY / innerHeight) * 100}%`);
+        sun.style.translate = "";
+        glintEl.style.translate = "";
+        const frames = [], gframes = [];
+        for (let d = 0; d <= 360; d++) {
+            const a = (d * Math.PI) / 180, p = arc(a);
+            const offset = timeOf(a) / CYCLE;
+            frames.push({ transform: `translate(${(p.x - baseX).toFixed(2)}px, ${(p.y - baseY).toFixed(2)}px)`, offset });
+            gframes.push({ transform: `translateX(${(p.x - baseX).toFixed(2)}px)`, offset });
+        }
+        const opts = { duration: CYCLE * SECONDS_PER_RADIAN * 1000, iterations: Infinity, easing: "linear" };
+        anim = sun.animate(frames, opts);
+        anim2 = glintEl.animate(gframes, opts);
+        anim.currentTime = anim2.currentTime = timeOf(th) * SECONDS_PER_RADIAN * 1000;
+    };
+
+    const startDrift = () => {
+        const token = ++resumeToken;
+        gliding = true;
+        const th = thetaFor(sunPx.x, sunPx.y);
+        const p = arc(th);
+        moveSun(p.x, p.y, false, true);        // glide onto the arc with the sun's usual spring...
+        setTimeout(() => {                     // ...then hand over to the animation
+            if (token !== resumeToken) return;
+            gliding = false;
+            runDrift(th);
+        }, 900);
+    };
+
+    // The animation moves the sun without script, so watch it only to keep the sky phase in step.
+    const follow = () => {
+        requestAnimationFrame(follow);
+        if (!anim) return;
+        const th = angleOf(((anim.currentTime / 1000 / SECONDS_PER_RADIAN) % CYCLE + CYCLE) % CYCLE);
+        const p = arc(th);
+        sunPx = p;
+        const next = phaseForSun(p.x, p.y);
+        if (next !== phase) setPhase(next);
+    };
+    requestAnimationFrame(follow);
+
+    // Resume a few seconds after the last hand-placement of the sun.
+    setInterval(() => {
+        if (anim || gliding || drag || document.hidden || reducedMotion) return;
+        if (performance.now() - lastUser > IDLE_BEFORE_RESUME) startDrift();
+    }, 1000);
+
+    // The arc is built from the viewport, so rebuild it (at the same moment of the day) when that changes.
+    let rebuild = 0;
+    addEventListener("resize", () => {
+        clearTimeout(rebuild);
+        if (!anim) {
+            const cs = getComputedStyle(sun);
+            sunPx = { x: parseFloat(cs.left), y: parseFloat(cs.top) };
+            return;
+        }
+        rebuild = setTimeout(() => {
+            if (!anim) return;
+            const th = sunAngle();
+            stopDrift();
+            runDrift(th);
+        }, 150);
+    });
+    const sunAngle = () => angleOf(((anim.currentTime / 1000 / SECONDS_PER_RADIAN) % CYCLE + CYCLE) % CYCLE);
 
     // ----- Night traffic: shooting stars and satellites -----
     const traffic = document.createElement("div");
@@ -264,7 +401,7 @@
             const r = c.el.getBoundingClientRect();
             const dist = Math.hypot(r.left + r.width / 2 - sx, r.top + r.height / 2 - sy);
             const g = Math.max(0, 1 - dist / (r.width / 2 + s.width * 0.75));
-            const q = Math.round(g * 50) / 50;
+            const q = Math.round(g * 20) / 20;
             if (q !== c.g) {
                 c.g = q;
                 c.el.style.setProperty("--glow", q);
@@ -274,10 +411,12 @@
     };
     if (!reduced) requestAnimationFrame(glow);
 
-    window.addEventListener("resize", () => {
-        const cs = getComputedStyle(sun);
-        sunPx = { x: parseFloat(cs.left), y: parseFloat(cs.top) };
-    });
-
+    // Start already on the arc (mid-morning, up on the left) so there is no jump onto it when the page loads.
+    const START_ANGLE = (115 * Math.PI) / 180;
+    const start = arc(START_ANGLE);
+    sunPx = start;
+    phase = phaseForSun(start.x, start.y);
     setPhase(phase);
+    if (reducedMotion) moveSun(start.x, start.y, false, true);
+    else runDrift(START_ANGLE);
 })();

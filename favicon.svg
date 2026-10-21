@@ -1,40 +1,24 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
   <defs>
-    <!-- Background gradient -->
-    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#0b1020"></stop>
-      <stop offset="100%" stop-color="#111c3a"></stop>
-    </linearGradient>
-
-    <!-- Blob gradient -->
-    <linearGradient id="blob" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#22d3ee"></stop>
-      <stop offset="50%" stop-color="#60a5fa"></stop>
-      <stop offset="100%" stop-color="#a78bfa"></stop>
+    <linearGradient id="sky" x1="0" y1="0" x2="0.4" y2="1">
+      <stop offset="0" stop-color="#4aa3df"/>
+      <stop offset="1" stop-color="#d6efff"/>
     </linearGradient>
   </defs>
 
-  <!-- Background -->
-  <rect width="64" height="64" rx="18" fill="url(#bg)"></rect>
+  <rect width="64" height="64" rx="14" fill="url(#sky)"/>
 
-  <!-- Subtle floating animation -->
-  <g transform-origin="32px 32px">
-    <animateTransform attributeName="transform" type="translate" values="0 0; 0 -1.2; 0 0" dur="4.5s" repeatCount="indefinite" calcMode="spline" keySplines="0.42 0 0.58 1;0.42 0 0.58 1"></animateTransform>
+  <!-- Sun -->
+  <circle cx="47" cy="18" r="9" fill="#fff6c2"/>
 
-    <!-- Blob face -->
-    <path d="
-        M32 14
-        C44 14 52 22 52 32
-        C52 44 44 52 32 52
-        C20 52 12 44 12 32
-        C12 22 20 14 32 14
-        Z" fill="url(#blob)" opacity="0.95"></path>
-
-    <!-- Eyes -->
-    <circle cx="26" cy="30" r="2.5" fill="#0b1020"></circle>
-    <circle cx="38" cy="30" r="2.5" fill="#0b1020"></circle>
-
-    <!-- Smile -->
-    <path d="M25 38 Q32 44 39 38" fill="none" stroke="#0b1020" stroke-width="2.5" stroke-linecap="round"></path>
+  <!-- Cloud -->
+  <g fill="#fff">
+    <rect x="6" y="32" width="52" height="22" rx="11"/>
+    <circle cx="23" cy="34" r="12"/>
+    <circle cx="37" cy="28" r="14"/>
   </g>
+
+  <!-- Terminal prompt: backend in the cloud -->
+  <path d="M20 37l6 5-6 5" fill="none" stroke="#0b2540" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M31 48h12" fill="none" stroke="#0b2540" stroke-width="3.2" stroke-linecap="round"/>
 </svg>
